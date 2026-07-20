@@ -273,6 +273,7 @@ async function openChapter(path, { forceRemote = false } = {}) {
 
   state.current = draft;
   store.lastOpen.set(path);
+  resetUndo();
   renderEditor();
   renderChapterList();
 }
@@ -289,6 +290,7 @@ function renderEditor() {
   editor.hidden = !hasDoc;
   $('commit-btn').disabled = !hasDoc;
   $('focus-btn').disabled = !hasDoc;
+  renderUndoButton();
   $('chapter-title').textContent = hasDoc
     ? state.current.name.replace(/\.txt$/i, '')
     : 'Chapters';
@@ -361,6 +363,52 @@ function renderStatus() {
   if (!state.online) label.textContent += ' · offline';
 }
 
+/* ---- Shallow undo (per open chapter, in memory only) ----
+ * The textarea's native undo history is wiped every time we set .value
+ * programmatically, and mobile has no Ctrl+Z anyway. We keep a handful of
+ * checkpoints: one per typing burst, where a burst ends after a short pause. */
+
+const UNDO_DEPTH = 10;
+const UNDO_PAUSE_MS = 1000;
+const undoStack = [];
+let lastInputAt = 0;
+
+function resetUndo() {
+  undoStack.length = 0;
+  lastInputAt = 0;
+  renderUndoButton();
+}
+
+function renderUndoButton() {
+  $('undo-btn').disabled = !state.current || undoStack.length === 0;
+}
+
+function onUndoClick() {
+  const doc = state.current;
+  if (!doc || undoStack.length === 0) return;
+  const restored = undoStack.pop();
+  const editor = $('editor');
+
+  // Land the caret where the two versions first diverge.
+  let caret = 0;
+  const limit = Math.min(restored.length, doc.content.length);
+  while (caret < limit && restored[caret] === doc.content[caret]) caret++;
+
+  doc.content = restored;
+  editor.value = restored;
+  editor.focus();
+  editor.setSelectionRange(caret, caret);
+
+  lastInputAt = 0; // typing after an undo always starts a fresh checkpoint
+  if (!doc.dirty) {
+    doc.dirty = true;
+    renderChapterList();
+  }
+  renderStatus();
+  renderUndoButton();
+  autosave();
+}
+
 /** Persist the current draft to IndexedDB. Called via the debouncer. */
 async function saveDraftNow() {
   const doc = state.current;
@@ -375,6 +423,17 @@ const autosave = makeDebouncer(saveDraftNow, 700);
 function onEditorInput() {
   const doc = state.current;
   if (!doc) return;
+
+  // A pause in typing ends a burst; checkpoint the text as it was before
+  // this keystroke so Undo steps back one burst at a time.
+  const now = Date.now();
+  if (undoStack.length === 0 || now - lastInputAt > UNDO_PAUSE_MS) {
+    undoStack.push(doc.content);
+    if (undoStack.length > UNDO_DEPTH) undoStack.shift();
+    renderUndoButton();
+  }
+  lastInputAt = now;
+
   doc.content = $('editor').value;
   if (!doc.dirty) {
     doc.dirty = true;
@@ -575,6 +634,7 @@ async function onNewChapterClick() {
   await store.drafts.put(draft);
   state.current = draft;
   store.lastOpen.set(path);
+  resetUndo();
   ui.closeDrawer();
   await refreshChapters();
   renderEditor();
@@ -688,6 +748,7 @@ function wireEvents() {
   $('settings-btn').addEventListener('click', showSetup);
   $('new-chapter-btn').addEventListener('click', onNewChapterClick);
   $('commit-btn').addEventListener('click', onCommitClick);
+  $('undo-btn').addEventListener('click', onUndoClick);
   $('typo-btn').addEventListener('click', () => ui.openDialog('typography-dialog'));
 
   $('focus-btn').addEventListener('click', () => ui.setFocusMode(true));
