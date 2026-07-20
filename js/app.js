@@ -13,13 +13,24 @@ import { initSetup, showSetup } from './setup.js';
 const $ = (id) => document.getElementById(id);
 
 const state = {
-  chapters: [],   // [{ name, path, sha?, size?, localOnly?, dirty? }]
+  chapters: [],   // [{ name, path, sha?, size?, localOnly?, dirty? }] in the current folder
+  folders: [],    // [{ name, path }] subfolders of the current folder
+  folder: null,   // folder being browsed (repo-relative, '' = repo root)
   current: null,  // active draft record (see storage.js for shape)
   online: navigator.onLine,
 };
 
 const cfg = () => store.settings.get();
 const tok = () => store.token.get();
+
+/** The configured folder acts as the navigation root ('' = repo root). */
+const rootFolder = () => gh.normalizeFolder(cfg().folder);
+const parentOf = (path) => path.split('/').slice(0, -1).join('/');
+
+function withinRoot(folder, root) {
+  if (typeof folder !== 'string') return false;
+  return root === '' || folder === root || folder.startsWith(root + '/');
+}
 
 /* ================================================================ *
  * Boot
@@ -44,19 +55,32 @@ function boot() {
 async function onConfigSaved() {
   // Fresh or changed config — reload the chapter list from scratch.
   state.chapters = [];
+  state.folders = [];
   state.current = null;
+  state.folder = rootFolder();
+  store.lastFolder.set(state.folder);
   await showApp();
 }
 
 async function showApp() {
   $('app-screen').hidden = false;
   renderEditor();
+
+  // Pick up browsing where we left off — fall back to the configured root
+  // if there's nothing saved or the saved folder is outside the new root.
+  if (state.folder === null) {
+    const saved = store.lastFolder.get();
+    state.folder = withinRoot(saved, rootFolder()) ? saved : rootFolder();
+  }
   await refreshChapters();
 
-  // Restore the chapter that was open last time, if it still exists.
+  // Restore the chapter that was open last time: either it's listed in the
+  // restored folder, or we still hold a local draft of it (e.g. offline).
   const last = store.lastOpen.get();
-  if (!state.current && last && state.chapters.some((c) => c.path === last)) {
-    await openChapter(last);
+  if (!state.current && last) {
+    if (state.chapters.some((c) => c.path === last) || (await store.drafts.get(last))) {
+      await openChapter(last);
+    }
   }
   // Nothing to show yet? Present the chapter list instead of a blank page.
   if (!state.current) {
@@ -69,12 +93,15 @@ async function showApp() {
  * ================================================================ */
 
 async function refreshChapters() {
+  const folder = state.folder ?? rootFolder();
   const localDrafts = await store.drafts.all();
   const byPath = new Map();
+  const dirsByPath = new Map();
 
   try {
-    const remote = await gh.listChapters(cfg(), tok());
-    remote.forEach((c) => byPath.set(c.path, c));
+    const remote = await gh.listFolder(cfg(), tok(), folder);
+    remote.dirs.forEach((d) => dirsByPath.set(d.path, d));
+    remote.files.forEach((c) => byPath.set(c.path, c));
     setOnline(true);
   } catch (err) {
     if (err.kind === 'offline') {
@@ -86,32 +113,81 @@ async function refreshChapters() {
   }
 
   // Local drafts that GitHub doesn't know about yet (created offline,
-  // or listed while offline) still belong in the list.
+  // or listed while offline) still belong in the list — and drafts living
+  // deeper down imply subfolders we should show even without the API.
   for (const d of localDrafts) {
-    if (!byPath.has(d.path)) {
-      byPath.set(d.path, { name: d.name, path: d.path, localOnly: !d.sha });
+    const parent = parentOf(d.path);
+    if (parent === folder) {
+      if (!byPath.has(d.path)) {
+        byPath.set(d.path, { name: d.name, path: d.path, localOnly: !d.sha });
+      }
+      const entry = byPath.get(d.path);
+      entry.dirty = d.dirty;
+      entry.queued = Boolean(d.pendingCommit);
+    } else if (withinRoot(parent, folder) && parent !== '') {
+      const name = (folder ? parent.slice(folder.length + 1) : parent).split('/')[0];
+      const path = folder ? `${folder}/${name}` : name;
+      if (!dirsByPath.has(path)) dirsByPath.set(path, { name, path });
     }
   }
-  for (const d of localDrafts) {
-    const entry = byPath.get(d.path);
-    entry.dirty = d.dirty;
-    entry.queued = Boolean(d.pendingCommit);
-  }
 
-  state.chapters = [...byPath.values()].sort((a, b) =>
-    a.name.localeCompare(b.name, undefined, { numeric: true })
-  );
+  const byName = (a, b) => a.name.localeCompare(b.name, undefined, { numeric: true });
+  state.folders = [...dirsByPath.values()].sort(byName);
+  state.chapters = [...byPath.values()].sort(byName);
   renderChapterList();
+}
+
+/** Build one drawer row; returns the <li> ready to append. */
+function listItem(className, label, onClick) {
+  const li = document.createElement('li');
+  const btn = document.createElement('button');
+  btn.className = className;
+
+  const name = document.createElement('span');
+  name.className = 'chapter-name';
+  name.textContent = label;
+  btn.appendChild(name);
+
+  btn.addEventListener('click', onClick);
+  li.appendChild(btn);
+  return li;
 }
 
 function renderChapterList() {
   const list = $('chapter-list');
   list.innerHTML = '';
 
+  const root = rootFolder();
+  const folder = state.folder ?? root;
+
+  // Show where we are (relative to the configured root) while in a subfolder.
+  const crumb = $('folder-path');
+  const rel = folder === root ? '' : root ? folder.slice(root.length + 1) : folder;
+  crumb.textContent = rel;
+  crumb.hidden = !rel;
+
+  if (folder !== root) {
+    const parent = parentOf(folder);
+    const label = parent === root
+      ? (root ? parent.split('/').pop() : 'repo root')
+      : parent.split('/').pop();
+    list.appendChild(
+      listItem('chapter-item folder-item back-item', `‹ ${label}`, () => openFolder(parent))
+    );
+  }
+
+  for (const dir of state.folders) {
+    list.appendChild(
+      listItem('chapter-item folder-item', `📁 ${dir.name}`, () => openFolder(dir.path))
+    );
+  }
+
   if (state.chapters.length === 0) {
     const li = document.createElement('li');
     li.className = 'chapter-empty';
-    li.textContent = 'No chapters yet — create your first one below.';
+    li.textContent = state.folders.length || folder !== root
+      ? 'No chapters in this folder.'
+      : 'No chapters yet — create your first one below.';
     list.appendChild(li);
     return;
   }
@@ -141,6 +217,17 @@ function renderChapterList() {
     li.appendChild(btn);
     list.appendChild(li);
   }
+}
+
+/* ================================================================ *
+ * Folder navigation
+ * ================================================================ */
+
+/** Browse into a folder (the drawer stays open) and remember the spot. */
+async function openFolder(path) {
+  state.folder = path;
+  store.lastFolder.set(path);
+  await refreshChapters();
 }
 
 /* ================================================================ *
@@ -395,6 +482,11 @@ async function onNewChapterClick() {
   fileInput.value = suggestFilename('');
   let fileEdited = false;
 
+  // New chapters land in the folder currently being browsed.
+  const folder = state.folder ?? rootFolder();
+  $('new-chapter-location').textContent = folder ? `Will be created in ${folder}/` : '';
+  $('new-chapter-location').hidden = !folder;
+
   const onTitle = () => {
     if (!fileEdited) fileInput.value = suggestFilename(titleInput.value);
   };
@@ -410,7 +502,7 @@ async function onNewChapterClick() {
   let name = fileInput.value.trim();
   if (!name) return;
   if (!name.toLowerCase().endsWith('.txt')) name += '.txt';
-  const path = gh.chapterPath(cfg(), name);
+  const path = gh.joinPath(folder, name);
 
   if (state.chapters.some((c) => c.path === path)) {
     ui.toast('A chapter with that filename already exists.');

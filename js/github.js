@@ -140,10 +140,10 @@ export function normalizeFolder(folder) {
   return (folder || '').trim().replace(/^\/+|\/+$/g, '');
 }
 
-/** Full in-repo path for a chapter file name. */
-export function chapterPath(cfg, name) {
-  const folder = normalizeFolder(cfg.folder);
-  return folder ? `${folder}/${name}` : name;
+/** Join a folder path and a file name into a full in-repo path. */
+export function joinPath(folder, name) {
+  const dir = normalizeFolder(folder);
+  return dir ? `${dir}/${name}` : name;
 }
 
 /** URL-encode a repo path, segment by segment (keeps the slashes). */
@@ -165,18 +165,19 @@ export async function validateRepo(cfg, token) {
 }
 
 /**
- * List .txt files in the configured folder, sorted by name.
+ * List a folder: its subfolders and its .txt files, each sorted by name.
+ * Returns { dirs: [{ name, path }], files: [{ name, path, sha, size }] }.
  * A missing folder is not an error — it just means no chapters yet
  * (GitHub creates intermediate folders on the first commit).
  */
-export async function listChapters(cfg, token) {
-  const folder = normalizeFolder(cfg.folder);
-  const url = contentsUrl(cfg, folder) + `?ref=${encodeURIComponent(cfg.branch)}`;
+export async function listFolder(cfg, token, folder) {
+  const dir = normalizeFolder(folder);
+  const url = contentsUrl(cfg, dir) + `?ref=${encodeURIComponent(cfg.branch)}`;
   let res;
   try {
     res = await api(token, url);
   } catch (err) {
-    if (err.kind === 'not-found') return [];
+    if (err.kind === 'not-found') return { dirs: [], files: [] };
     throw err;
   }
   const entries = await res.json();
@@ -186,10 +187,17 @@ export async function listChapters(cfg, token) {
       'api'
     );
   }
-  return entries
-    .filter((e) => e.type === 'file' && e.name.toLowerCase().endsWith('.txt'))
-    .map((e) => ({ name: e.name, path: e.path, sha: e.sha, size: e.size }))
-    .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+  const byName = (a, b) => a.name.localeCompare(b.name, undefined, { numeric: true });
+  return {
+    dirs: entries
+      .filter((e) => e.type === 'dir')
+      .map((e) => ({ name: e.name, path: e.path }))
+      .sort(byName),
+    files: entries
+      .filter((e) => e.type === 'file' && e.name.toLowerCase().endsWith('.txt'))
+      .map((e) => ({ name: e.name, path: e.path, sha: e.sha, size: e.size }))
+      .sort(byName),
+  };
 }
 
 /**

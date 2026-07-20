@@ -315,6 +315,29 @@ code {
   font-size: 0.95rem;
 }
 
+/* Folder rows in the drawer (subfolders + the "back up" row). */
+.folder-item .chapter-name { font-weight: 600; }
+.back-item .chapter-name { color: var(--text-dim); font-weight: 500; }
+
+/* Current subfolder, shown under the drawer header. */
+#folder-path {
+  margin: 0;
+  padding: 8px 18px;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Secondary note inside a dialog (e.g. where a new chapter will be created). */
+.dialog-hint {
+  margin: 0 0 12px;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
 .drawer-footer {
   display: grid;
   gap: 8px;

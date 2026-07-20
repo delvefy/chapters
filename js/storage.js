@@ -2,7 +2,7 @@
  * storage.js — everything that persists on the device.
  *
  *  - localStorage: small settings (repo config, token, typography prefs,
- *    last-open chapter). Synchronous, tiny, fine.
+ *    last-open chapter and folder). Synchronous, tiny, fine.
  *  - IndexedDB: chapter drafts. Every keystroke ends up here (debounced),
  *    so nothing is lost if the tab dies — including queued offline commits.
  *
@@ -68,6 +68,12 @@ export const prefs = {
 export const lastOpen = {
   get: () => lsGet('lastOpen'),
   set: (path) => lsSet('lastOpen', path),
+};
+
+/** Folder that was being browsed last ('' = repo root), to restore on launch. */
+export const lastFolder = {
+  get: () => lsGet('lastFolder'),
+  set: (path) => lsSet('lastFolder', path),
 };
 
 export function isConfigured() {
