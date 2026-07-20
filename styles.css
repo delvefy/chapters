@@ -1,0 +1,614 @@
+/* ================================================================
+   Chapters — styles.css
+   Mobile-first. Two themes driven by CSS custom properties:
+   auto via prefers-color-scheme, forced via html[data-theme].
+   ================================================================ */
+
+/* ----------------------------------------------------------------
+   Theme tokens
+   ---------------------------------------------------------------- */
+
+:root {
+  /* light (paper) */
+  --bg: #f7f4ef;
+  --bg-raised: #fffdf9;
+  --bg-inset: #efeae2;
+  --text: #26221b;
+  --text-dim: #6f675c;
+  --border: #ddd5c8;
+  --accent: #a85a1e;
+  --accent-text: #fff;
+  --danger: #b3362b;
+  --shadow: 0 8px 30px rgba(40, 30, 10, 0.18);
+
+  /* editor typography — overridden from JS (editor.js) */
+  --editor-font: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+  --editor-size: 18px;
+  --editor-leading: 1.7;
+  --editor-measure: 68ch;
+
+  /* safe-area insets for notched phones */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #14161c;
+    --bg-raised: #1d2027;
+    --bg-inset: #0e1014;
+    --text: #d9d5cd;
+    --text-dim: #8b877e;
+    --border: #31343d;
+    --accent: #d98a4f;
+    --accent-text: #1b130b;
+    --danger: #e06055;
+    --shadow: 0 8px 30px rgba(0, 0, 0, 0.55);
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme='dark'] {
+  --bg: #14161c;
+  --bg-raised: #1d2027;
+  --bg-inset: #0e1014;
+  --text: #d9d5cd;
+  --text-dim: #8b877e;
+  --border: #31343d;
+  --accent: #d98a4f;
+  --accent-text: #1b130b;
+  --danger: #e06055;
+  --shadow: 0 8px 30px rgba(0, 0, 0, 0.55);
+  color-scheme: dark;
+}
+
+/* ----------------------------------------------------------------
+   Base
+   ---------------------------------------------------------------- */
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.5 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior-y: none;
+}
+
+[hidden] { display: none !important; }
+
+a { color: var(--accent); }
+code {
+  background: var(--bg-inset);
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+.screen { height: 100dvh; }
+
+/* ----------------------------------------------------------------
+   Buttons
+   ---------------------------------------------------------------- */
+
+.btn {
+  appearance: none;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-raised);
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  padding: 12px 18px;      /* comfortable touch target */
+  min-height: 44px;
+  cursor: pointer;
+}
+.btn.small { padding: 7px 14px; min-height: 36px; font-size: 0.9rem; }
+.btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+.btn.ghost { background: transparent; }
+.btn.danger {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+}
+.btn:disabled { opacity: 0.45; cursor: default; }
+.btn:not(:disabled):active { transform: translateY(1px); }
+
+.icon-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex: none;
+}
+.icon-btn svg { width: 22px; height: 22px; }
+.icon-btn.text { font-weight: 700; font-size: 1.05rem; }
+.icon-btn:disabled { opacity: 0.4; }
+.icon-btn:not(:disabled):active { background: var(--bg-inset); }
+
+/* ----------------------------------------------------------------
+   Setup screen
+   ---------------------------------------------------------------- */
+
+.setup {
+  overflow-y: auto;
+  padding: calc(16px + var(--safe-top)) calc(16px + var(--safe-right))
+           calc(24px + var(--safe-bottom)) calc(16px + var(--safe-left));
+  display: grid;
+  justify-items: center;
+}
+
+.setup-card {
+  width: 100%;
+  max-width: 560px;
+}
+
+.setup-card h1 { font-size: 1.5rem; }
+.setup-card ol { padding-left: 1.3em; }
+.setup-card li { margin-bottom: 0.4em; }
+
+.security-note {
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 0.9rem;
+  color: var(--text-dim);
+}
+
+.field { display: block; margin-bottom: 14px; }
+.field > span {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+.field input {
+  width: 100%;
+  font: inherit;
+  font-size: 16px;               /* prevents iOS zoom-on-focus */
+  color: var(--text);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  min-height: 44px;
+}
+.field input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+/* ".field > .token-row" so it out-cascades the ".field > span" label style */
+.field > .token-row { display: flex; gap: 8px; }
+.token-row input { flex: 1; min-width: 0; }
+
+.field-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 14px;
+}
+@media (max-width: 420px) {
+  .field-grid { grid-template-columns: 1fr; }
+}
+
+.setup-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+/* ----------------------------------------------------------------
+   App layout: drawer + editor pane
+   ---------------------------------------------------------------- */
+
+#app-screen {
+  display: flex;
+  overflow: hidden;
+}
+
+#drawer {
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: 30;
+  width: min(85vw, 320px);
+  background: var(--bg-raised);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  transform: translateX(-105%);
+  transition: transform 0.25s ease;
+  padding-top: var(--safe-top);
+  padding-left: var(--safe-left);
+}
+#drawer.open { transform: translateX(0); box-shadow: var(--shadow); }
+
+#scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 8px 10px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.drawer-header h1 { font-size: 1.15rem; margin: 0; }
+
+#chapter-list {
+  list-style: none;
+  margin: 0;
+  padding: 8px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.chapter-item {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 12px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  cursor: pointer;
+}
+.chapter-item:active { background: var(--bg-inset); }
+.chapter-item.active { background: var(--bg-inset); font-weight: 700; }
+
+.chapter-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chapter-badge {
+  flex: none;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.chapter-empty {
+  color: var(--text-dim);
+  padding: 16px 12px;
+  font-size: 0.95rem;
+}
+
+.drawer-footer {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  padding-bottom: calc(12px + var(--safe-bottom));
+  border-top: 1px solid var(--border);
+}
+
+/* Persistent sidebar on wide screens */
+@media (min-width: 900px) {
+  #drawer {
+    position: static;
+    transform: none;
+    transition: none;
+    flex: none;
+  }
+  #drawer.open { box-shadow: none; }
+  #scrim { display: none; }
+  #menu-btn { display: none; }
+}
+
+/* ----------------------------------------------------------------
+   Editor pane
+   ---------------------------------------------------------------- */
+
+#editor-pane {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+}
+
+#topbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: calc(6px + var(--safe-top)) calc(10px + var(--safe-right)) 6px calc(10px + var(--safe-left));
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+
+#chapter-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#editor-scroll {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+}
+
+#editor {
+  display: block;
+  width: 100%;
+  max-width: var(--editor-measure);
+  height: 100%;
+  border: 0;
+  outline: none;
+  resize: none;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--editor-font);
+  font-size: var(--editor-size);
+  line-height: var(--editor-leading);
+  padding: 24px calc(18px + var(--safe-right)) 40vh calc(18px + var(--safe-left));
+  caret-color: var(--accent);
+}
+
+#empty-state {
+  align-self: center;
+  text-align: center;
+  color: var(--text-dim);
+  padding: 24px;
+}
+#empty-state p:first-child { font-size: 2.5rem; margin: 0 0 8px; }
+
+/* ----------------------------------------------------------------
+   Status bar
+   ---------------------------------------------------------------- */
+
+#statusbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  border-top: 1px solid var(--border);
+  padding: 6px calc(14px + var(--safe-right)) calc(6px + var(--safe-bottom)) calc(14px + var(--safe-left));
+  background: var(--bg);
+  min-height: 32px;
+}
+
+#stats, #sync-status {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#sync-status { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+
+.sync-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border);
+  flex: none;
+}
+.sync-dot.synced { background: #3f9d5c; }
+.sync-dot.dirty { background: #d9a520; }
+.sync-dot.queued { background: var(--danger); }
+
+body.offline #statusbar { border-top-color: var(--danger); }
+
+/* ----------------------------------------------------------------
+   Focus mode: nothing but text
+   ---------------------------------------------------------------- */
+
+body.focus-mode #topbar,
+body.focus-mode #statusbar,
+body.focus-mode #drawer { display: none; }
+
+body.focus-mode #editor { padding-top: calc(24px + var(--safe-top)); }
+
+#focus-exit {
+  position: fixed;
+  right: calc(14px + var(--safe-right));
+  bottom: calc(14px + var(--safe-bottom));
+  z-index: 40;
+  opacity: 0.35;
+  transition: opacity 0.2s;
+}
+#focus-exit:hover, #focus-exit:focus-visible { opacity: 1; }
+
+/* ----------------------------------------------------------------
+   Dialogs
+   ---------------------------------------------------------------- */
+
+dialog {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--bg-raised);
+  color: var(--text);
+  box-shadow: var(--shadow);
+  padding: 20px;
+  width: min(92vw, 420px);
+}
+dialog::backdrop { background: rgba(0, 0, 0, 0.45); }
+dialog h3 { margin: 0 0 14px; font-size: 1.1rem; }
+dialog p { color: var(--text-dim); }
+
+/* Bottom sheet variant (typography panel) on phones */
+@media (max-width: 640px) {
+  dialog.sheet {
+    width: 100vw;
+    max-width: none;
+    margin: auto 0 0;
+    border-radius: 16px 16px 0 0;
+    border-bottom: 0;
+    padding-bottom: calc(20px + var(--safe-bottom));
+  }
+}
+
+.dialog-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+.dialog-actions.column {
+  flex-direction: column;
+  align-items: stretch;
+}
+.dialog-actions .spacer { flex: 1; }
+
+/* ----------------------------------------------------------------
+   Typography panel controls
+   ---------------------------------------------------------------- */
+
+.segmented {
+  border: 0;
+  margin: 0 0 16px;
+  padding: 0;
+}
+.segmented legend {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  padding: 0;
+  margin-bottom: 6px;
+}
+.segmented label { display: inline-block; }
+.segmented input { position: absolute; opacity: 0; pointer-events: none; }
+.segmented span {
+  display: inline-block;
+  padding: 9px 16px;
+  min-height: 40px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  cursor: pointer;
+  user-select: none;
+}
+.segmented label:first-of-type span { border-radius: 10px 0 0 10px; }
+.segmented label:last-of-type span { border-radius: 0 10px 10px 0; }
+.segmented label:not(:first-of-type) span { margin-left: -1px; }
+.segmented input:checked + span {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+  position: relative;
+}
+.segmented input:focus-visible + span { outline: 2px solid var(--accent); }
+
+.f-serif { font-family: Georgia, serif; }
+.f-sans { font-family: system-ui, sans-serif; }
+.f-mono { font-family: ui-monospace, Menlo, monospace; }
+
+.slider-field { display: block; margin-bottom: 16px; }
+.slider-field > span {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+}
+.slider-field input[type='range'] {
+  width: 100%;
+  accent-color: var(--accent);
+  min-height: 32px;
+}
+
+/* ----------------------------------------------------------------
+   Toasts
+   ---------------------------------------------------------------- */
+
+#toast-region {
+  position: fixed;
+  left: 50%;
+  bottom: calc(24px + var(--safe-bottom));
+  transform: translateX(-50%);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: min(92vw, 440px);
+  pointer-events: none;
+}
+
+.toast {
+  /* Taps pass through the toast to the UI beneath — only the action
+     button is interactive. A message must never block the writer. */
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--text);
+  color: var(--bg);
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-size: 0.9rem;
+  box-shadow: var(--shadow);
+  animation: toast-in 0.25s ease;
+  max-width: 100%;
+}
+.toast.leaving { opacity: 0; transition: opacity 0.25s; }
+
+.toast-action {
+  pointer-events: auto;
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 4px 6px;
+  flex: none;
+}
+:root[data-theme='dark'] .toast-action,
+.toast-action { filter: brightness(1.35); }
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Chapters app icon: a chapter heading over lines of text, on warm ink. -->
+  <rect width="512" height="512" rx="112" fill="#14161c"/>
+  <rect x="108" y="128" width="180" height="44" rx="22" fill="#d98a4f"/>
+  <rect x="108" y="220" width="296" height="24" rx="12" fill="#8b877e"/>
+  <rect x="108" y="284" width="296" height="24" rx="12" fill="#8b877e"/>
+  <rect x="108" y="348" width="212" height="24" rx="12" fill="#8b877e"/>
+</svg>
