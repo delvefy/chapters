@@ -15,6 +15,7 @@
  *     savedAt,              // ms timestamp of last local save
  *     committedAt,          // ms timestamp of last successful commit (or null)
  *     pendingCommit,        // { message, queuedAt } when a commit was queued offline
+ *     scroll,               // rough reading position, 0..1 of the scrollable range
  *   }
  */
 

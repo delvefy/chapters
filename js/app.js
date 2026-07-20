@@ -241,6 +241,7 @@ async function openFolder(path) {
  */
 async function openChapter(path, { forceRemote = false } = {}) {
   autosave.flush(); // never drop pending keystrokes from the previous chapter
+  scrollsave.flush(); // ...nor the reading position we were at
 
   const name = path.split('/').pop();
   let draft = await store.drafts.get(path);
@@ -257,6 +258,7 @@ async function openChapter(path, { forceRemote = false } = {}) {
         savedAt: Date.now(),
         committedAt: draft && draft.sha === remote.sha ? draft.committedAt : null,
         pendingCommit: forceRemote ? null : draft?.pendingCommit || null,
+        scroll: draft?.scroll || 0, // reading position survives a re-fetch
       };
       await store.drafts.put(draft);
     } catch (err) {
@@ -293,8 +295,40 @@ function renderEditor() {
 
   if (hasDoc) {
     editor.value = state.current.content;
+    restoreScroll();
   }
   renderStatus();
+}
+
+/* ---- Rough scroll-position memory (per chapter, stored on the draft) ---- */
+
+/** Current scroll as a 0..1 fraction of the scrollable range. */
+function scrollFraction(editor) {
+  const range = editor.scrollHeight - editor.clientHeight;
+  return range > 0 ? Math.min(1, editor.scrollTop / range) : 0;
+}
+
+/** Put the editor back where the draft says we were. Rough is fine. */
+function restoreScroll() {
+  const editor = $('editor');
+  const fraction = state.current?.scroll || 0;
+  // Wait a frame so the just-unhidden textarea has real layout to measure.
+  requestAnimationFrame(() => {
+    editor.scrollTop = fraction * Math.max(0, editor.scrollHeight - editor.clientHeight);
+  });
+}
+
+/** Persist without stamping savedAt — scrolling isn't a content change. */
+async function saveScrollNow() {
+  if (state.current) await store.drafts.put(state.current);
+}
+
+const scrollsave = makeDebouncer(saveScrollNow, 1500);
+
+function onEditorScroll() {
+  if (!state.current) return;
+  state.current.scroll = scrollFraction($('editor'));
+  scrollsave();
 }
 
 function renderStatus() {
@@ -518,6 +552,7 @@ async function onNewChapterClick() {
     savedAt: Date.now(),
     committedAt: null,
     pendingCommit: null,
+    scroll: 0,
   };
 
   if (navigator.onLine) {
@@ -645,6 +680,7 @@ function registerServiceWorker() {
 
 function wireEvents() {
   $('editor').addEventListener('input', onEditorInput);
+  $('editor').addEventListener('scroll', onEditorScroll, { passive: true });
 
   $('menu-btn').addEventListener('click', ui.openDrawer);
   $('scrim').addEventListener('click', ui.closeDrawer);
@@ -668,11 +704,18 @@ function wireEvents() {
   window.addEventListener('online', onBackOnline);
   window.addEventListener('offline', () => setOnline(false));
 
-  // Don't lose the last keystrokes when the tab is backgrounded or closed.
+  // Don't lose the last keystrokes (or reading position) when the tab is
+  // backgrounded or closed.
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') autosave.flush();
+    if (document.visibilityState === 'hidden') {
+      autosave.flush();
+      scrollsave.flush();
+    }
   });
-  window.addEventListener('pagehide', () => autosave.flush());
+  window.addEventListener('pagehide', () => {
+    autosave.flush();
+    scrollsave.flush();
+  });
 
   initTypographyPanel();
 }
