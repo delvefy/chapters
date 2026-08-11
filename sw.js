@@ -11,7 +11,7 @@
  * Bump VERSION whenever any shell file changes so clients pick up updates.
  */
 
-const VERSION = 'v3';
+const VERSION = 'v4';
 const CACHE = `chapters-shell-${VERSION}`;
 
 const SHELL = [

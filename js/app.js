@@ -97,11 +97,13 @@ async function refreshChapters() {
   const localDrafts = await store.drafts.all();
   const byPath = new Map();
   const dirsByPath = new Map();
+  let remoteOk = false;
 
   try {
     const remote = await gh.listFolder(cfg(), tok(), folder);
     remote.dirs.forEach((d) => dirsByPath.set(d.path, d));
     remote.files.forEach((c) => byPath.set(c.path, c));
+    remoteOk = true;
     setOnline(true);
   } catch (err) {
     if (err.kind === 'offline') {
@@ -119,6 +121,14 @@ async function refreshChapters() {
     const parent = parentOf(d.path);
     if (parent === folder) {
       if (!byPath.has(d.path)) {
+        // Committed before, but gone from GitHub at this path now (moved,
+        // renamed or deleted from another device). With nothing local left
+        // to protect, drop the stale draft instead of showing a ghost.
+        if (remoteOk && d.sha && !d.dirty && !d.pendingCommit
+            && state.current?.path !== d.path) {
+          await store.drafts.remove(d.path);
+          continue;
+        }
         byPath.set(d.path, { name: d.name, path: d.path, localOnly: !d.sha });
       }
       const entry = byPath.get(d.path);
@@ -262,8 +272,26 @@ async function openChapter(path, { forceRemote = false } = {}) {
       };
       await store.drafts.put(draft);
     } catch (err) {
+      // Gone from GitHub at this path (moved, renamed or deleted from
+      // another device). Everything local was committed, so clear the
+      // stale draft and send the user back to the (refreshed) list.
+      if (err.kind === 'not-found' && draft && !draft.dirty && !draft.pendingCommit) {
+        await store.drafts.remove(path);
+        if (store.lastOpen.get() === path) store.lastOpen.set(null);
+        ui.toast(
+          `“${name.replace(/\.txt$/i, '')}” was moved or deleted on GitHub — cleared the outdated local copy.`,
+          { duration: 7000 }
+        );
+        await refreshChapters();
+        if (!state.current) ui.openDrawer();
+        return;
+      }
       if (draft && !forceRemote) {
-        ui.toast('Could not reach GitHub — opened the local copy.');
+        ui.toast(
+          err.kind === 'not-found'
+            ? 'This chapter was moved or deleted on GitHub — opened your local copy so no writing is lost.'
+            : 'Could not reach GitHub — opened the local copy.'
+        );
       } else {
         ui.toast(err.message, { duration: 7000 });
         return;
